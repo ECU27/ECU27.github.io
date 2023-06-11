@@ -229,7 +229,7 @@ section {
 .btn:hover {
   background: #040329;
   color: white;
-  border-color: #040329;
+  border-color: var(--color-principal);
 }
 
 .inicio .containerprofesion {
