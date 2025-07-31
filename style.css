@@ -330,7 +330,7 @@
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
-            color: var(--gray);
+            color: var(--white);
         }
 
         .form-control {
@@ -369,7 +369,7 @@
         }
 
         .footer-links a {
-            color: var(--gray);
+            color: var(--white);
             text-decoration: none;
             transition: color 0.3s ease;
         }
@@ -402,7 +402,7 @@
         }
 
         .copyright {
-            color: var(--gray);
+            color: var(--white);
             font-size: 0.9rem;
         }
 
