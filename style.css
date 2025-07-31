@@ -1,4 +1,4 @@
- :root {
+   :root {
             --primary: #2563eb;
             --primary-dark: #1d4ed8;
             --secondary: #7c3aed;
@@ -36,17 +36,20 @@
             justify-content: center;
             position: relative;
             overflow: hidden;
+            background-image: url(https://s03.s3c.es/imag/_v0/1200x675/6/4/d/IA-escribiendo-codigo.jpg) ; /* ¡Imagen de fondo agregada aquí! */
+            background-size: cover; /* Para cubrir todo el espacio */
+            background-position: center; /* Para centrar la imagen */
+            opacity: 89%;
         }
 
         .hero::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(37,99,235,0.1) 0%, rgba(0,0,0,0) 70%);
-            animation: pulse 15s infinite alternate;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4); /* Capa semi-transparente para mejor legibilidad del texto */
             z-index: -1;
         }
 
@@ -59,6 +62,8 @@
             text-align: center;
             max-width: 800px;
             margin: 0 auto;
+            position: relative; /* Asegura que el contenido esté sobre el fondo */
+            z-index: 1;
         }
 
         .hero h1 {
@@ -72,9 +77,8 @@
 
         .hero p {
             font-size: 1.2rem;
-            color: var(--gray);
+            color: var(--light); /* Asegura que el texto sea legible en el nuevo fondo */
             margin-bottom: 2rem;
-            color: white;
         }
 
         .cta-button {
@@ -326,7 +330,7 @@
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
-            color: var(--white);
+            color: var(--gray);
         }
 
         .form-control {
@@ -365,7 +369,7 @@
         }
 
         .footer-links a {
-            color: var(--white);
+            color: var(--gray);
             text-decoration: none;
             transition: color 0.3s ease;
         }
@@ -398,7 +402,7 @@
         }
 
         .copyright {
-            color: var(--white);
+            color: var(--gray);
             font-size: 0.9rem;
         }
 
@@ -448,9 +452,9 @@
 
         .floating {
             animation: float 6s ease-in-out infinite;
-           font-size: 3.5rem;
-            margin-bottom: 1.5rem;
             background: linear-gradient(45deg, var(--primary), var(--secondary));
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             line-height: 1.2;
