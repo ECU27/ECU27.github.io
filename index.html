@@ -9,7 +9,7 @@
 <body>
     <section class="hero">
         <div class="hero-content">
-            <h1>Transforma tu negocio con <span class="floating" style="display: inline-block;">Automatización</span> Inteligentes</h1>
+            <h1>Transforma tu negocio con <span class="floating" style="display: inline-block;">Automatizaciones</span> Inteligente</h1>
             <p>Soluciones avanzadas de automatización impulsadas por IA para optimizar tus procesos empresariales y aumentar la productividad.</p>
             <a href="#contact" class="cta-button">Empieza Ahora</a>
         </div>
@@ -102,6 +102,17 @@
         </div>
     </section>
 
+    <!-- CHATBOT SECTION - CORREGIDO -->
+    <div id="chat-button">💬</div>
+    <div id="chat-window">
+        <header>🤖 Jarvis Asistente Virtual</header>
+        <div id="chat-body"></div>
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="Escribe aquí..." />
+            <button id="send-button">➤</button>
+        </div>
+    </div>
+
     <section class="contact" id="contact">
         <div class="container">
             <div class="contact-container">
@@ -117,7 +128,7 @@
                     </div>
                     <div class="contact-item">
                         <div class="contact-icon">✉️</div>
-                        <div>contacto@nexusautomate.com</div>
+                        <div>ingenix@gmail.com</div>
                     </div>
                 </div>
                 <div class="contact-form">
@@ -157,54 +168,11 @@
                 <a href="#" class="social-link">🐦</a>
             </div>
             <div class="copyright">
-                © 2023 NexusAutomate. Todos los derechos reservados.
+                © 2025 IngeniX. Todos los derechos reservados.
             </div>
         </div>
     </footer>
 
-    <script>
-        // Smooth scrolling for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
-                });
-            });
-        });
-
-        // Form submission
-        document.getElementById('contactForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Gracias por tu mensaje. Nos pondremos en contacto contigo pronto.');
-            this.reset();
-        });
-
-        // Animation on scroll
-        function animateOnScroll() {
-            const elements = document.querySelectorAll('.service-card, .case-card, .stat-item');
-
-            elements.forEach(element => {
-                const elementPosition = element.getBoundingClientRect().top;
-                const screenPosition = window.innerHeight / 1.3;
-
-                if(elementPosition < screenPosition) {
-                    element.style.opacity = '1';
-                    element.style.transform = 'translateY(0)';
-                }
-            });
-        }
-
-        // Initialize elements with opacity 0 for animation
-        document.querySelectorAll('.service-card, .case-card, .stat-item').forEach(element => {
-            element.style.opacity = '0';
-            element.style.transform = 'translateY(20px)';
-            element.style.transition = 'all 0.6s ease';
-        });
-
-        window.addEventListener('scroll', animateOnScroll);
-        window.addEventListener('load', animateOnScroll);
-    </script>
+    <script src="index.js"></script>
 </body>
 </html>
