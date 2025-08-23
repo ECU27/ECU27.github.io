@@ -455,3 +455,122 @@ window.JarvisChat = {
     retryQueue: retryQueuedMessages,
     testConnection: testN8nConnection
 };
+
+
+//configuracion para el webhook 
+// Este código procesa los datos que llegan desde tu chat
+
+// Obtener datos del webhook
+const webhookData = $input.first().json;
+
+// Extraer información del mensaje
+const userMessage = webhookData.message;
+const userId = webhookData.userId;
+const sessionId = webhookData.sessionId;
+const timestamp = webhookData.timestamp;
+const source = webhookData.source;
+const context = webhookData.context || {};
+
+// Log para debugging
+console.log('Mensaje recibido:', {
+  userMessage,
+  userId,
+  sessionId,
+  timestamp
+});
+
+// Función para generar respuestas básicas
+function generateResponse(message) {
+  const msg = message.toLowerCase();
+  
+  // Respuestas específicas para tu negocio
+  if (msg.includes('hola') || msg.includes('hi')) {
+    return '¡Hola! 👋 Soy Jarvis, tu asistente de AutoRepuestosExpress. ¿En qué puedo ayudarte hoy?';
+  }
+  
+  if (msg.includes('precio') || msg.includes('costo')) {
+    return '💰 Para consultar precios específicos, puedes contactarnos al WhatsApp o visitar nuestro catálogo. ¿Qué repuesto necesitas?';
+  }
+  
+  if (msg.includes('horario') || msg.includes('hora')) {
+    return '🕒 Nuestros horarios de atención son:\n📅 Lunes a Viernes: 8:00 AM - 6:00 PM\n📅 Sábados: 8:00 AM - 4:00 PM\n📅 Domingos: Cerrado';
+  }
+  
+  if (msg.includes('ubicación') || msg.includes('dirección') || msg.includes('donde')) {
+    return '📍 Nos encontramos en [TU DIRECCIÓN]. También puedes contactarnos por WhatsApp para coordinar entregas. ¿Necesitas nuestra ubicación exacta?';
+  }
+  
+  if (msg.includes('whatsapp') || msg.includes('contacto') || msg.includes('teléfono')) {
+    return '📱 Puedes contactarnos por WhatsApp: [TU NÚMERO]\n📧 Email: [TU EMAIL]\n¡Estamos aquí para ayudarte!';
+  }
+  
+  if (msg.includes('repuesto') || msg.includes('auto') || msg.includes('carro')) {
+    return '🔧 Tenemos repuestos para todas las marcas:\n• Motor y transmisión\n• Frenos y suspensión\n• Sistema eléctrico\n• Carrocería\n\n¿Para qué marca y modelo necesitas el repuesto?';
+  }
+  
+  if (msg.includes('entrega') || msg.includes('envío')) {
+    return '🚚 Ofrecemos:\n• Entrega a domicilio\n• Retiro en tienda\n• Envíos a nivel nacional\n\n¿A qué zona necesitas la entrega?';
+  }
+  
+  if (msg.includes('garantía') || msg.includes('devolution')) {
+    return '✅ Todos nuestros repuestos tienen garantía:\n• Repuestos nuevos: 6 meses\n• Repuestos remanufacturados: 3 meses\n• Garantía por defectos de fábrica';
+  }
+  
+  if (msg.includes('gracias')) {
+    return '¡De nada! 😊 ¿Hay algo más en lo que pueda ayudarte? Estoy aquí para resolver todas tus dudas sobre repuestos.';
+  }
+  
+  if (msg.includes('adios') || msg.includes('bye')) {
+    return '¡Hasta pronto! 👋 Recuerda que estamos aquí cuando necesites repuestos para tu vehículo. ¡Que tengas un excelente día!';
+  }
+  
+  // Respuesta por defecto
+  return '🤖 Entiendo que necesitas ayuda. Te puedo ayudar con:\n\n• 💰 Consultas de precios\n• 📍 Ubicación y horarios\n• 🔧 Tipos de repuestos\n• 🚚 Entregas y envíos\n• 📱 Información de contacto\n\n¿Sobre cuál de estos temas te gustaría saber más?';
+}
+
+// Generar respuesta
+let botResponse;
+
+// Si el mensaje es un test de conexión
+if (userMessage === '__CONNECTION_TEST__') {
+  botResponse = 'Conexión exitosa con n8n ✅';
+} else {
+  // Generar respuesta normal
+  botResponse = generateResponse(userMessage);
+}
+
+// Preparar datos de salida
+const outputData = {
+  // Datos originales
+  originalMessage: userMessage,
+  userId: userId,
+  sessionId: sessionId,
+  timestamp: timestamp,
+  source: source,
+  
+  // Respuesta generada
+  reply: botResponse,
+  message: botResponse, // Para compatibilidad
+  
+  // Metadatos adicionales
+  responseTimestamp: new Date().toISOString(),
+  processingTime: Date.now() - new Date(timestamp).getTime(),
+  
+  // Contexto para próximas conversaciones
+  context: {
+    lastMessage: userMessage,
+    lastResponse: botResponse,
+    messageCount: (context.messageCount || 0) + 1,
+    conversationStart: context.chatStartTime || timestamp
+  }
+};
+
+// Log de la respuesta
+console.log('Respuesta generada:', {
+  originalMessage: userMessage,
+  reply: botResponse,
+  processingTime: outputData.processingTime + 'ms'
+});
+
+// Retornar los datos
+return outputData;
