@@ -53,8 +53,20 @@ const sendButton = document.getElementById("send-button");
 const chatBody = document.getElementById("chat-body");
 
 // Configuración para n8n (CAMBIAR POR TU URL DE WEBHOOK)
+// Configuración de n8n
 const N8N_WEBHOOK_URL = 'https://n8n.autorepuestosexpress.com/webhook/f8a39070-7c24-4ca6-8580-2b5fd3bff523';
-const USE_N8N = true;// Cambiar a true cuando tengas configurado n8n
+const USE_N8N = true;
+
+// Configuración adicional
+const CONFIG = {
+    timeout: 30000, // 30 segundos
+    retries: 3,
+    retryDelay: 1000 // 1 segundo inicial
+};
+
+// Variables globales
+let retryCount = 0;
+let messageQueue = [];
 
 // Toggle del chat
 chatButton.addEventListener("click", () => {
@@ -64,37 +76,81 @@ chatButton.addEventListener("click", () => {
     }
 });
 
-// Función para generar ID único de usuario
+// Función para generar ID único de usuario (sin localStorage para GitHub Pages)
 function generateUserId() {
-    let userId = localStorage.getItem('chatUserId');
+    // Usar sessionStorage que persiste durante la sesión del navegador
+    let userId = sessionStorage.getItem('chatUserId');
     if (!userId) {
-        userId = 'user_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('chatUserId', userId);
+        userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('chatUserId', userId);
     }
     return userId;
+}
+
+// Función para generar ID de sesión
+function generateSessionId() {
+    let sessionId = sessionStorage.getItem('chatSessionId');
+    if (!sessionId) {
+        sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('chatSessionId', sessionId);
+    }
+    return sessionId;
 }
 
 // Función para agregar mensajes
 function addMessage(text, sender = "bot") {
     const msg = document.createElement("div");
     msg.className = sender;
-    msg.textContent = text;
+    
+    // Formatear mensaje con markdown básico
+    const formattedText = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+        .replace(/\n/g, '<br>');
+    
+    msg.innerHTML = formattedText;
+    
+    // Agregar timestamp
+    const timestamp = document.createElement("div");
+    timestamp.className = "timestamp";
+    timestamp.textContent = new Date().toLocaleTimeString();
+    timestamp.style.fontSize = "0.7em";
+    timestamp.style.opacity = "0.6";
+    timestamp.style.marginTop = "4px";
+    msg.appendChild(timestamp);
+    
     chatBody.appendChild(msg);
     chatBody.scrollTop = chatBody.scrollHeight;
     
     // Animar entrada del mensaje
+    msg.style.opacity = '0';
+    msg.style.transform = 'translateY(10px)';
+    msg.style.transition = 'all 0.3s ease';
+    
     setTimeout(() => {
         msg.style.opacity = '1';
         msg.style.transform = 'translateY(0)';
     }, 10);
 }
 
-// Función para mostrar indicador de escritura
+// Función para mostrar indicador de escritura mejorado
 function showTypingIndicator() {
     const typingMsg = document.createElement("div");
     typingMsg.className = "bot typing-indicator";
-    typingMsg.innerHTML = "⏳ Jarvis está escribiendo...";
     typingMsg.id = "typing-indicator";
+    
+    typingMsg.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <span>Jarvis está escribiendo...</span>
+        </div>
+    `;
+    
     chatBody.appendChild(typingMsg);
     chatBody.scrollTop = chatBody.scrollHeight;
     return typingMsg;
@@ -108,33 +164,122 @@ function removeTypingIndicator() {
     }
 }
 
-// Función para enviar mensaje a n8n
+// Función mejorada para enviar mensaje a n8n
 async function sendToN8n(message) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
+    
     try {
+        // Payload completo para n8n
+        const payload = {
+            message: message,
+            userId: generateUserId(),
+            sessionId: generateSessionId(),
+            timestamp: new Date().toISOString(),
+            source: 'website_chat',
+            userAgent: navigator.userAgent,
+            url: window.location.href,
+            referrer: document.referrer || 'direct',
+            // Contexto adicional
+            context: {
+                previousMessages: getRecentMessages(3), // Últimos 3 mensajes para contexto
+                chatStartTime: sessionStorage.getItem('chatStartTime') || new Date().toISOString()
+            }
+        };
+        
+        console.log('Enviando payload a n8n:', payload);
+
         const response = await fetch(N8N_WEBHOOK_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Jarvis-Chat/1.0'
             },
-            body: JSON.stringify({
-                message: message,
-                userId: generateUserId(),
-                timestamp: new Date().toISOString(),
-                source: 'website_chat'
-            })
+            body: JSON.stringify(payload),
+            signal: controller.signal
         });
 
+        clearTimeout(timeoutId);
+
+        // Verificar si la respuesta es exitosa
         if (!response.ok) {
-            throw new Error('Network response was not ok');
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const data = await response.json();
-        return data.reply || data.message || getBotResponse(message);
+        // Verificar tipo de contenido
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // Si no es JSON, tratar como texto plano
+            const text = await response.text();
+            data = { message: text };
+        }
+
+        console.log('Respuesta de n8n:', data);
+
+        // Extraer respuesta según diferentes formatos posibles
+        const botResponse = data.reply || 
+                          data.message || 
+                          data.response || 
+                          data.text ||
+                          (data.data ? data.data.message : null) ||
+                          'Respuesta recibida correctamente';
+
+        // Reset retry count on success
+        retryCount = 0;
+
+        return botResponse;
         
     } catch (error) {
-        console.error('Error connecting to n8n:', error);
-        // Fallback a respuestas locales si n8n no está disponible
-        return getBotResponse(message);
+        clearTimeout(timeoutId);
+        
+        if (error.name === 'AbortError') {
+            throw new Error('Timeout: La petición tardó demasiado tiempo');
+        }
+        
+        console.error('Error detallado conectando con n8n:', {
+            error: error.message,
+            url: N8N_WEBHOOK_URL,
+            timestamp: new Date().toISOString()
+        });
+        
+        throw error;
+    }
+}
+
+// Función para obtener mensajes recientes para contexto
+function getRecentMessages(count = 3) {
+    const messages = Array.from(chatBody.children)
+        .filter(msg => !msg.classList.contains('typing-indicator'))
+        .slice(-count * 2) // Multiplicar por 2 para incluir user y bot
+        .map(msg => ({
+            sender: msg.className.includes('user') ? 'user' : 'bot',
+            text: msg.textContent.replace(/\d{1,2}:\d{2}:\d{2}.*$/, '').trim() // Remover timestamp
+        }));
+    
+    return messages;
+}
+
+// Función con reintentos automáticos
+async function sendToN8nWithRetry(message) {
+    for (let attempt = 1; attempt <= CONFIG.retries; attempt++) {
+        try {
+            return await sendToN8n(message);
+        } catch (error) {
+            console.log(`Intento ${attempt} fallido:`, error.message);
+            
+            if (attempt === CONFIG.retries) {
+                throw error; // Si es el último intento, lanzar el error
+            }
+            
+            // Esperar antes del siguiente intento (backoff exponencial)
+            const delay = CONFIG.retryDelay * Math.pow(2, attempt - 1);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
     }
 }
 
@@ -147,6 +292,11 @@ async function sendMessage() {
     addMessage(message, "user");
     chatInput.value = "";
     
+    // Guardar tiempo de inicio del chat si es el primer mensaje
+    if (!sessionStorage.getItem('chatStartTime')) {
+        sessionStorage.setItem('chatStartTime', new Date().toISOString());
+    }
+    
     // Mostrar indicador de escritura
     const typingIndicator = showTypingIndicator();
     
@@ -154,11 +304,11 @@ async function sendMessage() {
         let response;
         
         if (USE_N8N) {
-            // Usar n8n si está habilitado
-            response = await sendToN8n(message);
+            // Usar n8n con reintentos
+            response = await sendToN8nWithRetry(message);
         } else {
             // Usar respuestas locales
-            await new Promise(resolve => setTimeout(resolve, 500)); // Simular delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
             response = getBotResponse(message);
         }
         
@@ -166,10 +316,57 @@ async function sendMessage() {
         removeTypingIndicator();
         addMessage(response, "bot");
         
+        // Disparar evento personalizado
+        document.dispatchEvent(new CustomEvent('chatMessageSent', {
+            detail: { message, response }
+        }));
+        
     } catch (error) {
         removeTypingIndicator();
-        console.error('Error:', error);
-        addMessage("Lo siento, hubo un problema técnico. Por favor intenta de nuevo. 🔧", "bot");
+        console.error('Error enviando mensaje:', error);
+        
+        // Mensaje de error más específico
+        let errorMessage = "Lo siento, hubo un problema técnico. ";
+        
+        if (error.message.includes('Timeout')) {
+            errorMessage += "La conexión está tardando mucho. ";
+        } else if (error.message.includes('HTTP')) {
+            errorMessage += "Error de servidor. ";
+        } else {
+            errorMessage += "Error de conexión. ";
+        }
+        
+        errorMessage += "Por favor intenta de nuevo. 🔧";
+        
+        addMessage(errorMessage, "bot");
+        
+        // Guardar mensaje en cola para reenvío
+        messageQueue.push({
+            message,
+            timestamp: new Date().toISOString()
+        });
+    }
+}
+
+// Función para reenviar mensajes en cola
+async function retryQueuedMessages() {
+    if (messageQueue.length === 0) return;
+    
+    console.log(`Reenviando ${messageQueue.length} mensajes en cola...`);
+    
+    const queue = [...messageQueue];
+    messageQueue = [];
+    
+    for (const item of queue) {
+        try {
+            const response = await sendToN8nWithRetry(item.message);
+            addMessage(`📤 Mensaje reenviado: "${item.message}"`, "user");
+            addMessage(response, "bot");
+        } catch (error) {
+            console.error('Error reenviando mensaje:', error);
+            // Volver a agregar a la cola si falla
+            messageQueue.push(item);
+        }
     }
 }
 
@@ -177,7 +374,8 @@ async function sendMessage() {
 sendButton.addEventListener("click", sendMessage);
 
 chatInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
         sendMessage();
     }
 });
@@ -187,7 +385,22 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         addMessage("¡Hola! Soy Jarvis 🤖 ¿En qué puedo ayudarte con nuestros servicios de automatización?");
     }, 1000);
+    
+    // Test de conexión inicial (opcional)
+    if (USE_N8N) {
+        setTimeout(testN8nConnection, 2000);
+    }
 });
+
+// Función para probar conexión
+async function testN8nConnection() {
+    try {
+        const testResponse = await sendToN8n('__CONNECTION_TEST__');
+        console.log('✅ Conexión con n8n exitosa');
+    } catch (error) {
+        console.log('⚠️ Problema de conexión con n8n:', error.message);
+    }
+}
 
 // Cerrar chat al hacer clic fuera de él
 document.addEventListener('click', function(e) {
@@ -200,3 +413,45 @@ document.addEventListener('click', function(e) {
 chatWindow.addEventListener('click', function(e) {
     e.stopPropagation();
 });
+
+// Manejo de reconexión
+window.addEventListener('online', () => {
+    console.log('🌐 Conexión restaurada');
+    if (messageQueue.length > 0) {
+        setTimeout(retryQueuedMessages, 1000);
+    }
+});
+
+window.addEventListener('offline', () => {
+    console.log('📡 Sin conexión a internet');
+});
+
+// Event listener personalizado para respuestas del chat
+document.addEventListener('chatMessageSent', (event) => {
+    const { message, response } = event.detail;
+    console.log('Mensaje enviado:', message);
+    console.log('Respuesta recibida:', response);
+    
+    // Aquí puedes agregar lógica adicional como analytics, etc.
+});
+
+// Función de utilidad para exportar conversación
+function exportChatHistory() {
+    const messages = Array.from(chatBody.children)
+        .filter(msg => !msg.classList.contains('typing-indicator'))
+        .map(msg => ({
+            sender: msg.className.includes('user') ? 'Usuario' : 'Jarvis',
+            message: msg.textContent.replace(/\d{1,2}:\d{2}:\d{2}.*$/, '').trim(),
+            timestamp: new Date().toISOString()
+        }));
+    
+    return JSON.stringify(messages, null, 2);
+}
+
+// Hacer funciones disponibles globalmente
+window.JarvisChat = {
+    sendMessage: sendMessage,
+    exportHistory: exportChatHistory,
+    retryQueue: retryQueuedMessages,
+    testConnection: testN8nConnection
+};
